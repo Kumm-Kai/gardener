@@ -231,6 +231,12 @@ func GetExtensionLastOperation(obj client.Object) *gardencorev1beta1.LastOperati
 func SeedNamePredicate(seedName string, getSeedNamesFromObject func(client.Object) (*string, *string)) predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		specSeedName, statusSeedName := getSeedNamesFromObject(obj)
-		return gardenerutils.GetResponsibleSeedName(specSeedName, statusSeedName) == seedName
+
+		for _, name := range gardenerutils.GetResponsibleSeedNames(specSeedName, statusSeedName) {
+			if name == seedName {
+				return true
+			}
+		}
+		return false
 	})
 }

@@ -16,6 +16,7 @@ package shoot
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -219,10 +220,17 @@ func (r *Reconciler) runMigrateShootFlow(ctx context.Context, o *operation.Opera
 			},
 			Dependencies: flow.NewTaskIDs(waitUntilExtensionResourcesMigrated),
 		})
+		errorDummy = g.Add(flow.Task{
+			Name: "Aborting migration",
+			Fn: func(ctx context.Context) error {
+				return errors.New("Aborting migration")
+			},
+			Dependencies: flow.NewTaskIDs(persistShootState),
+		})
 		deleteExtensionResources = g.Add(flow.Task{
 			Name:         "Deleting extension resources from the Shoot namespace",
 			Fn:           botanist.DestroyExtensionResourcesInParallel,
-			Dependencies: flow.NewTaskIDs(persistShootState),
+			Dependencies: flow.NewTaskIDs(errorDummy),
 		})
 		waitUntilExtensionResourcesDeleted = g.Add(flow.Task{
 			Name:         "Waiting until extension resources have been deleted",
@@ -232,7 +240,7 @@ func (r *Reconciler) runMigrateShootFlow(ctx context.Context, o *operation.Opera
 		deleteMachineResources = g.Add(flow.Task{
 			Name:         "Shallow-deleting machine resources from the Shoot namespace",
 			Fn:           botanist.ShallowDeleteMachineResources,
-			Dependencies: flow.NewTaskIDs(persistShootState),
+			Dependencies: flow.NewTaskIDs(errorDummy),
 		})
 		waitUntilMachineResourcesDeleted = g.Add(flow.Task{
 			Name: "Waiting until machine resources have been deleted",

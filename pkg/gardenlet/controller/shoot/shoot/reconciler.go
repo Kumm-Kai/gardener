@@ -90,8 +90,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return reconcile.Result{}, fmt.Errorf("error retrieving object from store: %w", err)
 	}
 
-	if responsibleSeedName := gardenerutils.GetResponsibleSeedName(shoot.Spec.SeedName, shoot.Status.SeedName); responsibleSeedName != r.Config.SeedConfig.Name {
-		log.Info("Skipping because Shoot is not managed by this gardenlet", "seedName", responsibleSeedName)
+	responsibleSeedNames := gardenerutils.GetResponsibleSeedNames(shoot.Spec.SeedName, shoot.Status.SeedName)
+	var seedFound bool
+	for _, name := range responsibleSeedNames {
+		if name == r.Config.SeedConfig.Name {
+			seedFound = true
+		}
+	}
+
+	if !seedFound {
+		log.Info("Skipping because Shoot is not managed by this gardenlet", "seedName", r.Config.SeedConfig.Name)
 		return reconcile.Result{}, nil
 	}
 
@@ -99,10 +107,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return r.deleteShoot(ctx, log, shoot)
 	}
 
-	if helper.ShouldPrepareShootForMigration(shoot) {
+	if *shoot.Status.SeedName == r.Config.SeedConfig.Name {
+		log.Info("I am responsible for shoot migration", "shootName", shoot.Name, "seedName", r.Config.SeedConfig.Name, "responsibleSeeds", responsibleSeedNames)
 		return r.migrateShoot(ctx, log, shoot)
 	}
 
+	log.Info("I am responsible for shoot reconcile", "shootName", shoot.Name, "seedName", r.Config.SeedConfig.Name, "responsibleSeeds", responsibleSeedNames)
 	return r.reconcileShoot(ctx, log, shoot)
 }
 
@@ -111,6 +121,11 @@ func (r *Reconciler) reconcileShoot(ctx context.Context, log logr.Logger, shoot 
 		operationType = helper.ComputeOperationType(shoot)
 		isRestoring   = operationType == gardencorev1beta1.LastOperationTypeRestore
 	)
+	if operationType == gardencorev1beta1.LastOperationTypeMigrate {
+		isRestoring = true
+		operationType = gardencorev1beta1.LastOperationTypeRestore
+	}
+
 	log = log.WithValues("operation", strings.ToLower(string(operationType)))
 
 	if !controllerutil.ContainsFinalizer(shoot, gardencorev1beta1.GardenerName) {

@@ -34,3 +34,24 @@ func GetResponsibleSeedName(specSeedName, statusSeedName *string) string {
 		return *specSeedName
 	}
 }
+
+func GetResponsibleSeedNames(specSeedName, statusSeedName *string) []string {
+	var responsibleSeeds []string
+
+	switch {
+	case specSeedName == nil:
+		// If the spec.seedName is empty then nobody is responsible.
+
+	case statusSeedName == nil:
+		// If status.seedName is not set yet, the seed given in spec.seedName is responsible for reconciliation.
+
+		responsibleSeeds = append(responsibleSeeds, *specSeedName)
+	case *specSeedName != *statusSeedName:
+		// Migration of the object was triggered, the seeds given in spec.seedName & status.seedName are responsible for orchestrating the migration.
+		responsibleSeeds = append(responsibleSeeds, *specSeedName, *statusSeedName)
+	default:
+		// No migration and all fields populated, one gardenlet is responsible.
+		responsibleSeeds = append(responsibleSeeds, *specSeedName)
+	}
+	return responsibleSeeds
+}

@@ -74,6 +74,7 @@ func AddToManagerWithOptions(mgr manager.Manager, _ AddOptions) (*extensionswebh
 				"machine",
 				"dependency-watchdog-prober",
 				"prometheus", // needed for blackbox-exporter sidecar in prometheus statefulset
+				"kubernetes", // needed for kube-apiserver for live control-plane migration
 			}},
 		}},
 	}, nil

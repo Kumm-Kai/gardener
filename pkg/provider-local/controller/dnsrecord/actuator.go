@@ -197,6 +197,7 @@ func (a *actuator) updateCoreDNSRewritingRules(
 	mutateCorednsRules func(corednsConfig *corev1.ConfigMap, dnsRecord *extensionsv1alpha1.DNSRecord, zone *string),
 ) error {
 	// Only handle dns records for kube-apiserver
+	// TODO(live cp migration): adjust this to allow handle our custom etcd records
 	if dnsRecord == nil || !strings.HasPrefix(dnsRecord.Spec.Name, "api.") || !strings.HasSuffix(dnsRecord.Spec.Name, ".local.gardener.cloud") {
 		return nil
 	}
